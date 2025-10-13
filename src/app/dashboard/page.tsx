@@ -34,6 +34,8 @@ interface ExamResult {
 type Faculty = keyof typeof courseCurriculum;
 
 interface UserProfile {
+  name: string;
+  studentId: string;
   faculty: Faculty;
 }
 
@@ -87,12 +89,13 @@ export default function DashboardPage() {
           const data = doc.data();
           return {
             id: doc.id,
+            examId: data.examId,
             examName: data.examName || "",
             score: data.score || 0,
             passed: data.passed || false,
             correctAnswers: data.correctAnswers || 0,
             totalQuestions: data.totalQuestions || 0,
-            completedAt: data.completedAt?.toDate() || new Date(),
+            completedAt: data.completedAt,
             userId: data.userId,
           } as ExamResult;
         });
