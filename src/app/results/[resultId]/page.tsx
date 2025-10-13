@@ -6,8 +6,15 @@ import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { CheckCircle, XCircle, Award, TrendingUp, Home } from "lucide-react";
-
+import {
+  CheckCircle,
+  XCircle,
+  Award,
+  Clock,
+  TrendingUp,
+  Home,
+  AlertCircle,
+} from "lucide-react";
 import confetti from "canvas-confetti";
 
 interface Question {
@@ -323,15 +330,6 @@ export default function ResultsPage() {
             <Home className="w-5 h-5" />
             Back to Dashboard
           </button>
-
-          {!result.passed && (
-            <button
-              onClick={() => router.push(`/exam/${result.examId}`)}
-              className="flex-1 bg-amber-600 text-white py-4 rounded-lg font-semibold hover:bg-amber-700 transition shadow-lg"
-            >
-              Retake Exam
-            </button>
-          )}
         </div>
 
         {/* Motivational Message */}
@@ -347,11 +345,12 @@ export default function ResultsPage() {
             </>
           ) : (
             <>
-              <TrendingUp className="w-12 h-12 mx-auto mb-3" />
-              <h3 className="text-2xl font-bold mb-2">Don&apos;t Give Up!</h3>
+              <AlertCircle className="w-12 h-12 mx-auto mb-3" />
+              <h3 className="text-2xl font-bold mb-2">Keep Learning!</h3>
               <p className="text-indigo-100">
-                Review the correct answers above and try again. Every attempt is
-                a learning opportunity!
+                Review the correct answers above to improve your understanding.
+                Each exam can only be taken once, so focus on learning from this
+                experience for your remaining exams.
               </p>
             </>
           )}

@@ -4,19 +4,52 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { doc, setDoc, collection } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { courseCurriculum, getQuestionsForExam } from "@/lib/examData";
 import { Clock, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
+type Faculty = keyof typeof courseCurriculum;
+
+interface UserProfile {
+  faculty: Faculty;
+  // ... other properties
+}
+
+type Answers = {
+  [key: number]: number; // questionIndex: answerIndex
+};
+
+interface Exam {
+  id: string;
+  name: string;
+  duration: number;
+  passingScore: number;
+}
+
+interface Question {
+  id: string;
+  text: string;
+  question: string;
+  options: string[];
+  correctAnswer: number; // index of the correct answer
+}
+
 export default function ExamPage() {
   const router = useRouter();
   const params = useParams();
   const { user, userProfile, loading } = useAuth();
-  const [examData, setExamData] = useState(null);
-  const [questions, setQuestions] = useState([]);
-  const [answers, setAnswers] = useState({});
+  const [examData, setExamData] = useState<Exam | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [answers, setAnswers] = useState<Answers>({});
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [examStarted, setExamStarted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -29,7 +62,7 @@ export default function ExamPage() {
 
     if (userProfile) {
       // Find exam data
-      const exams = courseCurriculum[userProfile.faculty] || [];
+      const exams = courseCurriculum[userProfile.faculty as Faculty] || [];
       const exam = exams.find((e) => e.id === params.examId);
 
       if (!exam) {
@@ -38,12 +71,37 @@ export default function ExamPage() {
         return;
       }
 
+      // Check if exam has already been taken
+      checkIfExamTaken(params.examId as string);
+
       setExamData(exam);
       const examQuestions = getQuestionsForExam(params.examId);
       setQuestions(examQuestions);
       setTimeRemaining(exam.duration * 60); // Convert to seconds
     }
   }, [user, userProfile, loading, params.examId, router]);
+
+  const checkIfExamTaken = async (examId: string) => {
+    if (!user) return;
+
+    try {
+      const resultsQuery = query(
+        collection(db, "results"),
+        where("userId", "==", user.uid),
+        where("examId", "==", examId)
+      );
+      const resultsSnapshot = await getDocs(resultsQuery);
+
+      if (!resultsSnapshot.empty) {
+        toast.error(
+          "You have already taken this exam. Each exam can only be taken once."
+        );
+        router.push("/dashboard");
+      }
+    } catch (error) {
+      console.error("Error checking exam status:", error);
+    }
+  };
 
   // Timer countdown
   useEffect(() => {
@@ -62,7 +120,7 @@ export default function ExamPage() {
     return () => clearInterval(timer);
   }, [examStarted, timeRemaining]);
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
@@ -73,7 +131,7 @@ export default function ExamPage() {
     toast.success("Exam started! Good luck!");
   };
 
-  const handleAnswerChange = (questionIndex, answerIndex) => {
+  const handleAnswerChange = (questionIndex: number, answerIndex: number) => {
     setAnswers({
       ...answers,
       [questionIndex]: answerIndex,
@@ -81,6 +139,12 @@ export default function ExamPage() {
   };
 
   const handleSubmitExam = async (autoSubmit = false) => {
+    if (!examData) {
+      toast.error("Exam data not found");
+      router.push("/dashboard");
+      return;
+    }
+
     if (!autoSubmit) {
       const confirmed = window.confirm(
         "Are you sure you want to submit your exam? You cannot change your answers after submission."
@@ -103,16 +167,16 @@ export default function ExamPage() {
 
     // Save result to Firestore
     try {
-      const resultId = `${user.uid}_${examData.id}_${Date.now()}`;
+      const resultId = `${user.uid}_${examData?.id}_${Date.now()}`;
       await setDoc(doc(db, "results", resultId), {
         userId: user.uid,
-        examId: examData.id,
-        examName: examData.name,
+        examId: examData?.id,
+        examName: examData?.name,
         score,
         correctAnswers,
         totalQuestions: questions.length,
         passed,
-        passingScore: examData.passingScore,
+        passingScore: examData?.passingScore,
         completedAt: new Date().toISOString(),
         answers: answers,
         questions: questions,
@@ -171,10 +235,17 @@ export default function ExamPage() {
                   <li>• Total Questions: {questions.length}</li>
                   <li>• Duration: {examData.duration} minutes</li>
                   <li>• Passing Score: {examData.passingScore}%</li>
+                  <li>
+                    •{" "}
+                    <strong>
+                      ⚠️ You can only take this exam ONCE - make it count!
+                    </strong>
+                  </li>
                   <li>• Once you start, the timer will begin automatically</li>
                   <li>• You must answer all questions before submitting</li>
                   <li>• The exam will auto-submit when time runs out</li>
                   <li>• You cannot pause or restart once you begin</li>
+                  <li>• Review your answers carefully before submitting</li>
                 </ul>
               </div>
             </div>

@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { courseCurriculum } from "@/lib/examData";
+import toast from "react-hot-toast";
 import {
   BookOpen,
   LogOut,
@@ -17,15 +18,23 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-interface Result {
+interface ExamResult {
   id: string;
   examId: string;
   examName: string;
   score: number;
+  passed: boolean;
   correctAnswers: number;
   totalQuestions: number;
-  passed: boolean;
-  completedAt: string;
+  completedAt: Date; // You might want to use a more specific type like Date or firestore.Timestamp
+  userId?: string;
+  // Add any other fields that might be in your results
+}
+
+type Faculty = keyof typeof courseCurriculum;
+
+interface UserProfile {
+  faculty: Faculty;
 }
 
 interface Exam {
@@ -35,18 +44,29 @@ interface Exam {
   passingScore: number;
 }
 
-type Faculty =
-  | "Frontend Development"
-  | "Backend Development"
-  | "Mobile App Development"
-  | "UI/UX Design"
-  | "Data Science"
-  | "Full Stack Development";
+interface ResultsReport {
+  studentName: string;
+  studentId: string;
+  faculty: string;
+  completionDate: string;
+  results: Array<{
+    examName: string;
+    score: number;
+    passed: boolean;
+    correctAnswers: number;
+    totalQuestions: number;
+    date: string;
+  }>;
+  totalExams: number;
+  completedExams: number;
+  passedExams: number;
+  averageScore: number;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, userProfile, logout, loading } = useAuth();
-  const [results, setResults] = useState<Result[]>([]);
+  const [results, setResults] = useState<ExamResult[]>([]);
   const [loadingResults, setLoadingResults] = useState(true);
 
   useEffect(() => {
@@ -63,17 +83,245 @@ export default function DashboardPage() {
           where("userId", "==", user.uid)
         );
         const resultsSnapshot = await getDocs(resultsQuery);
-        const fetchedResults = resultsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setResults(fetchedResults as Result[]);
+        const fetchedResults = resultsSnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            examName: data.examName || "",
+            score: data.score || 0,
+            passed: data.passed || false,
+            correctAnswers: data.correctAnswers || 0,
+            totalQuestions: data.totalQuestions || 0,
+            completedAt: data.completedAt?.toDate() || new Date(),
+            userId: data.userId,
+          } as ExamResult;
+        });
+        setResults(fetchedResults);
         setLoadingResults(false);
       }
     };
 
     fetchResults();
   }, [user]);
+
+  const generateResultsReport = () => {
+    const report = {
+      studentName: userProfile.name,
+      studentId: userProfile.studentId,
+      faculty: userProfile.faculty,
+      completionDate: new Date().toLocaleDateString(),
+      results: results.map((r) => ({
+        examName: r.examName,
+        score: r.score,
+        passed: r.passed,
+        correctAnswers: r.correctAnswers,
+        totalQuestions: r.totalQuestions,
+        date: new Date(r.completedAt).toLocaleDateString(),
+      })),
+      totalExams: userExams.length,
+      completedExams: completedExams,
+      passedExams: passedExams,
+      averageScore: averageScore,
+    };
+    return report;
+  };
+
+  const downloadResultsAsPDF = (report: ResultsReport) => {
+    // Create HTML content for the report
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Aptech Exam Results - ${report.studentName}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            line-height: 1.6;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #4F46E5;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .header h1 {
+            color: #4F46E5;
+            margin-bottom: 10px;
+          }
+          .student-info {
+            background: #F3F4F6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+          }
+          .student-info p {
+            margin: 8px 0;
+          }
+          .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+          }
+          .stat-card {
+            background: #EEF2FF;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+          }
+          .stat-card h3 {
+            color: #4F46E5;
+            font-size: 24px;
+            margin: 0;
+          }
+          .stat-card p {
+            color: #6B7280;
+            font-size: 12px;
+            margin: 5px 0 0 0;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+          }
+          th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #E5E7EB;
+          }
+          th {
+            background: #4F46E5;
+            color: white;
+            font-weight: 600;
+          }
+          .passed {
+            color: #059669;
+            font-weight: 600;
+          }
+          .failed {
+            color: #DC2626;
+            font-weight: 600;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #E5E7EB;
+            color: #6B7280;
+            font-size: 14px;
+          }
+          .certificate-text {
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 30px;
+          }
+          @media print {
+            body { padding: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>🎓 APTECH EXAMINATION SYSTEM</h1>
+          <h2>Student Results Report</h2>
+        </div>
+        
+        <div class="student-info">
+          <p><strong>Student Name:</strong> ${report.studentName}</p>
+          <p><strong>Student ID:</strong> ${report.studentId}</p>
+          <p><strong>Faculty:</strong> ${report.faculty}</p>
+          <p><strong>Report Generated:</strong> ${report.completionDate}</p>
+        </div>
+
+        <div class="stats">
+          <div class="stat-card">
+            <h3>${report.totalExams}</h3>
+            <p>Total Exams</p>
+          </div>
+          <div class="stat-card">
+            <h3>${report.completedExams}</h3>
+            <p>Completed</p>
+          </div>
+          <div class="stat-card">
+            <h3>${report.passedExams}</h3>
+            <p>Passed</p>
+          </div>
+          <div class="stat-card">
+            <h3>${report.averageScore}%</h3>
+            <p>Average Score</p>
+          </div>
+        </div>
+
+        <h3>Detailed Results</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Exam Name</th>
+              <th>Date</th>
+              <th>Score</th>
+              <th>Correct Answers</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${report.results
+              .map(
+                (r) => `
+              <tr>
+                <td>${r.examName}</td>
+                <td>${r.date}</td>
+                <td><strong>${r.score}%</strong></td>
+                <td>${r.correctAnswers}/${r.totalQuestions}</td>
+                <td class="${r.passed ? "passed" : "failed"}">${
+                  r.passed ? "✓ PASSED" : "✗ FAILED"
+                }</td>
+              </tr>
+            `
+              )
+              .join("")}
+          </tbody>
+        </table>
+
+        ${
+          report.completedExams === report.totalExams &&
+          report.passedExams === report.totalExams
+            ? `
+          <div class="certificate-text">
+            <h2>🏆 CONGRATULATIONS! 🏆</h2>
+            <p>You have successfully completed and passed all exams in ${report.faculty}</p>
+          </div>
+        `
+            : ""
+        }
+
+        <div class="footer">
+          <p>This is an official document from Aptech Examination System</p>
+          <p>Generated on ${new Date().toLocaleString()}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Create blob and download
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Aptech_Results_${report.studentId}_${Date.now()}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    toast.success("Results downloaded successfully!");
+  };
 
   if (loading || !userProfile) {
     return (
@@ -187,6 +435,34 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Download Results Button */}
+        {completedExams === userExams.length && completedExams > 0 && (
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 mb-8 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-bold mb-2">
+                  🎉 All Exams Completed!
+                </h3>
+                <p className="text-green-100">
+                  Congratulations! You&apos;ve completed all exams in your
+                  faculty.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  // Generate comprehensive results report
+                  const report = generateResultsReport();
+                  downloadResultsAsPDF(report);
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-white text-green-600 rounded-lg font-semibold hover:bg-green-50 transition shadow-lg"
+              >
+                <Award className="w-5 h-5" />
+                Download All Results
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Available Exams */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <h3 className="text-2xl font-bold text-gray-800 mb-6">
@@ -261,10 +537,20 @@ export default function DashboardPage() {
 
                     <button
                       onClick={() => router.push(`/exam/${exam.id}`)}
-                      className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition"
+                      disabled={!!result}
+                      className={`w-full py-2 rounded-lg font-semibold transition ${
+                        result
+                          ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                          : "bg-indigo-600 text-white hover:bg-indigo-700"
+                      }`}
                     >
-                      {result ? "Retake Exam" : "Take Exam"}
+                      {result ? "Exam Completed" : "Take Exam"}
                     </button>
+                    {result && (
+                      <p className="text-xs text-center text-gray-500 mt-2">
+                        ℹ️ Each exam can only be taken once
+                      </p>
+                    )}
                   </div>
                 );
               })}
