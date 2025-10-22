@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Shield,
 } from "lucide-react";
+import Image from "next/image";
 
 export default function HomePage() {
   const features = [
@@ -65,12 +66,14 @@ export default function HomePage() {
       <nav className="bg-white/80 backdrop-blur-md shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-2 rounded-lg">
-              <BookOpen className="w-8 h-8 text-white" />
+            <div className=" p-2 rounded-lg">
+              <Image src="/logo.png" alt="ThinkTank" width={50} height={50} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Aptech</h1>
-              <p className="text-xs text-gray-600">Examination System</p>
+              <h1 className="text-2xl font-bold text-gray-800">ThinkTank</h1>
+              <p className="text-xs text-gray-600">
+                School of Technology & Innovation
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -123,7 +126,7 @@ export default function HomePage() {
                 <ArrowRight className="w-5 h-5" />
               </Link>
               <Link
-                href="/"
+                href="/signin"
                 className="flex items-center justify-center gap-2 px-8 py-4 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-gray-50 transition shadow-lg border-2 border-indigo-200"
               >
                 Login to Account
