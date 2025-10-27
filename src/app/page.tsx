@@ -433,7 +433,9 @@ export default function HomePage() {
           </div>
 
           <div className="border-t border-gray-800 pt-8 text-center text-gray-400 text-sm">
-            <p>&copy; 2025 Aptech Examination System. All rights reserved.</p>
+            <p>
+              &copy; 2025 ThinkTank Examination System. All rights reserved.
+            </p>
           </div>
         </div>
       </footer>
