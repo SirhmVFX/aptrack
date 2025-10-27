@@ -380,7 +380,7 @@ export default function HomePage() {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <BookOpen className="w-6 h-6" />
-                <span className="font-bold text-lg">Aptech Exam</span>
+                <span className="font-bold text-lg">ThinkTank Exam</span>
               </div>
               <p className="text-gray-400 text-sm">
                 Empowering students to excel through smart assessment and
@@ -425,7 +425,7 @@ export default function HomePage() {
             <div>
               <h4 className="font-bold mb-4">Contact</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
-                <li>support@aptech.com</li>
+                <li>support@thinktank.com</li>
                 <li>Lagos, Nigeria</li>
                 <li>Mon - Fri: 9AM - 6PM</li>
               </ul>
